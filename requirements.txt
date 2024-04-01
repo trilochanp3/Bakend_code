@@ -1,0 +1,16 @@
+fastapi
+pydantic
+uvicorn
+motor
+bson
+passlib
+pillow
+torchvision
+python-multipart  # Optional, for file uploads
+
+# Optional libraries already included in the standard library
+io
+base64
+uuid
+os
+datetime
