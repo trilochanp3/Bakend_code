@@ -40,11 +40,6 @@ class login(BaseModel):
     email: str
     password: str
 
-# from fastapi import FastAPI, Body
-# from fastapi.responses import JSONResponse
-# from models import User
-# from database import user_collection
-
 app = FastAPI()
 
 @app.post("/register")
@@ -54,7 +49,7 @@ async def register(user: User = Body(...)):
         print(f"Received user data: {user.dict()}")
         # Check for duplicate email
         # if collection.find_one({"email": user.email}):
-        #     return JSONResponse({"message": "Email already exists"}, status_code=400)
+        #     return {"message": "Email already exists"}
 
         # Hash password (implement a secure hashing algorithm)
         # hashed_password = hash_password(user.password)
@@ -71,7 +66,7 @@ async def register(user: User = Body(...)):
     
 
 # -----------------------------------------------------------------------------
-# a----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
     
 
 class UserLogin(BaseModel):
@@ -219,44 +214,42 @@ async def ep(data:EP):
     # --------------------------------------------------------------------
 
     # Error:iimage not showing and i need to add a loop to send all images
+class CropName(BaseModel):
+    cropName: str
 
-class cropname(BaseModel):
-    cropName:str
 @app.post("/get-machines")
-async def GM(name:cropname):
+async def get_machines(name: CropName):
     try:
-        user= await mclltn.find_one({"crop":name.cropName})
-        print(user)
-        if user:
-            own_email=user.get("userEmail",None)
-            print(own_email)
+        machines = await mclltn.find({"crop": name.cropName}).to_list(length=None)
+        response_data = []
+        for machine in machines:
+            own_email = machine.get("userEmail", None)
+            real_user = await collection.find_one({"email": own_email})
+            own_name = real_user.get("fullName", None) if real_user else None
+            image_path = machine.get("imageInBase64", None)
+            if image_path:
+                with open(image_path, "rb") as f:
+                    image_data = f.read()
+                    encoded_image = image_data.decode("utf-8")
+            else:
+                encoded_image = None
 
-        real_user=await collection.find_one({"email":own_email})
-        if real_user:
-            own_name=real_user.get("fullName",None)
+            response_data.append({
+                "id": str(machine["_id"]) if machine.get("_id") else None,
+                "name": machine.get("machineName"),  # Handle potential missing "machineName" field
+                "imageInBase64": encoded_image,
+                "owner": own_name,
+                "location": machine.get("location"),  # Handle potential missing "location" field
+                "price": machine.get("price"),  # Handle potential missing "price" field
+                "ownerContact": machine.get("userPhone"),
+                
+            })
             print(own_name)
-        image_path=user.get("imageInBase64")
-        with open(image_path, "rb") as f:
-            image_data = f.read()
-            encoded_image = image_data.decode("utf-8")
-            print(encoded_image)
+        return JSONResponse(content=response_data)
 
     except Exception as e:
         print(f"Error fetching user location: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
-    
-    
-    return JSONResponse([{
-            "id": str(user["_id"]) if user.get("_id") else None,
-            "name": user.get("machineName"),  # Handle potential missing "full_name" field
-            "imageInBase64": encoded_image,
-            "owner": own_name,
-            "location": user.get("location"),  # Handle potential missing "phoneNumber" field
-            "price": user.get("price"),  # Handle potential missing "address" field
-            "ownerContact": user.get("userPhone")
-        }])
-
-
 # --------------------------------------------------------------------------
 # --------------------------------------------------------------------------
 
@@ -438,7 +431,7 @@ async def receive_machine_and_user_details(data: MachineAndUser):
                     "machine_name": data.machine.name,
                     "body": f"user {data.useremail} has requested your machine {data.machine.name}",
                     "createdAt": createdAt,
-                    "type": "Action"
+                    "type": "action"
                 })
         return{"message":"machine ordered sucessfully"}
 
@@ -464,6 +457,7 @@ async def gn(data:getnoti):
                 "type": user.get("type"),
                 "isProcessed": "false"  # Assuming "isProcessed" is always false
             }
+            print(user.get("type"))
             notifications.append(notification)
         return notifications
 
@@ -494,7 +488,7 @@ async def pn(data:prsnoti):
 
                 })
                 await oclltn.insert_one({
-                    "userEmail": user.get("own_email"),
+                    "userEmail": user.get("userEmail"),
                     "orderdate":user.get("createdAt"),
                     "machine":user.get("machine_name")
                 })
