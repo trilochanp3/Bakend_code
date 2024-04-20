@@ -122,7 +122,6 @@ async def login(user_credentials: UserLogin):
         
 
 class AM(BaseModel):
-    
     machineName :  str
     crop: str 
     userEmail : str
@@ -132,20 +131,18 @@ class AM(BaseModel):
 @app.post("/add-machine")
 async def add_machine(machine:AM
 
-# location : str = Form(...)
 
 ):
     image_storage_path="machine/"
     try:
-        image_data = bytes(machine.imageInBase64, 'utf-8')  # Assuming UTF-8 encoding
+        image_data = bytes(machine.imageInBase64, 'utf-8')  
 
-        # Create an in-memory file-like object
         image_file = BytesIO(image_data)
         print(f"Received user data: {machine.dict()}")
         user = await collection.find_one({"email": machine.userEmail})
         print(user)
         if user:
-            user_location = user.get("address", None)  # Handle potential missing location
+            user_location = user.get("address", None)  
         else:
             user_location = None 
     except Exception as e:
@@ -302,17 +299,24 @@ async def scan_crop(data:getcrop):
         with torch.no_grad():
          output = new_model(input_batch)
 
-        _, predicted_class = output.max(1)
+        probs = torch.softmax(output, dim=1)
+        confidence_score, predicted_class = torch.max(probs, 1)
 
         class_names = ['Rice', 'Canola', 'Cotton', 'Maize', 'Peanut', 'Sugarcane', 'Wheat']
         kclass_names=['ಅಕ್ಕಿ','ಸಾಸಿವೆ','ಹತ್ತಿ','ಜೋಳ','ಕಡಲೆಕಾಯಿ','ಕಬ್ಬು','ಗೋದಿ']
-        predicted_class_name = class_names[predicted_class.item()]
-        kpredicted_class_name = kclass_names[predicted_class.item()]
+        print(confidence_score)
+        if confidence_score.item() > 0.8:
+            predicted_class_name = class_names[predicted_class.item()]
+            kpredicted_class_name = kclass_names[predicted_class.item()]
+        else:
+            predicted_class_name = "No Class Found"
+            kpredicted_class_name = "ಯೋಗ್ಯತೆ ಕಂಡುಬಂದಿಲ್ಲ"
         print(f'The predicted class is: {predicted_class_name}')
         new_unique_id = str(uuid.uuid4()).replace("-", "") 
         unique_id=new_unique_id.lower()
         print(unique_id)
         class_id=predicted_class.item()
+        print(class_id)
 
         return {
             "id": class_id,
@@ -481,8 +485,8 @@ async def pn(data:prsnoti):
                 await nclltn.insert_one({
                     "userEmail": user.get("own_email"),
                     "own_email": user.get("userEmail"),
-                    "title": "requested accepted",
-                    "body": f"user  requested for machine {user.get('machine_name')} is accepted",
+                    "title": "Request accepted",
+                    "body": f"Your  request for machine {user.get('machine_name')} is accepted",
                     "createdAt": user.get("createdAt"),
                     "type": "normal"
 
@@ -497,8 +501,8 @@ async def pn(data:prsnoti):
                 await nclltn.insert_one({
                     "userEmail": user.get("own_email"),
                     "own_email": user.get("userEmail"),
-                    "title": "requested Rejected",
-                    "body": f"user  requested for machine {user.get('machine_name')} is rejected",
+                    "title": "Request Rejected",
+                    "body": f"Your  request for machine {user.get('machine_name')} is rejected",
                     "createdAt": user.get("createdAt"),
                     "type": "normal"
 
